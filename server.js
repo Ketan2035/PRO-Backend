@@ -28,5 +28,5 @@ app.use("/api/professionals", professionalRoutes);
 app.use("/api",professionalRoutes);
 
 // start server
-const PORT = process.env.PORT || 5000;
-module.exports = app;
+// const PORT = process.env.PORT || 5000;
+export default app;
