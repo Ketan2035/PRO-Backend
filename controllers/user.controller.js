@@ -2,13 +2,19 @@ import Customer from "../models/customerSchema.js";
 import Professional from "../models/professionalSchema.js";
 import generateToken from "../utils/generateToken.js";
 
+import bcrypt from "bcrypt";
+
 export const registerCustomer = async (req, res) => {
   try {
     console.log("BODY:", req.body);
-    const { name, email, mobile, city, address } = req.body;
+    const { name, email, password, mobile, city, address } = req.body;
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
     const newCustomer = new Customer({
       name,
       email,
+      password: hashedPassword,
       mob_no: mobile,
       city,
       address,
@@ -102,9 +108,23 @@ export const deleteAddress = async (req, res) => {
   }
 };
 
+import jwt from "jsonwebtoken";
+
 export const getMe = async (req, res) => {
   try {
-    const { id, role } = req.user;
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(200).json({ success: false, message: "Not logged in" });
+    }
+    
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.SECRET_KEY);
+    } catch (err) {
+      return res.status(200).json({ success: false, message: "Invalid token" });
+    }
+
+    const { id, role } = decoded;
 
     let user = null;
 

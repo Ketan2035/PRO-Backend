@@ -9,6 +9,10 @@ const customerSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  password: {
+    type: String,
+    required: true,
+  },
   mob_no: {
     type: String,
     required: true,

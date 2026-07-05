@@ -14,7 +14,10 @@ const professionalSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-
+    password: {
+      type: String,
+      required: true,
+    },
     mob: {
       type: String,
       required: true,
@@ -61,6 +64,18 @@ const professionalSchema = new mongoose.Schema(
       country: {
         type: String,
         default: "India",
+      },
+    },
+
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number],
+        default: [0, 0], // [longitude, latitude]
       },
     },
 
@@ -136,5 +151,7 @@ const professionalSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+professionalSchema.index({ location: "2dsphere" });
 
 export default mongoose.model("Professional", professionalSchema);
