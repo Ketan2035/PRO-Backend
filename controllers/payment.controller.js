@@ -1,6 +1,8 @@
 import Razorpay from "razorpay";
 import Booking from "../models/bookingSchema.js";
 import crypto from "crypto";
+import mongoose from "mongoose";
+import { processSuccessfulPayment } from "../services/PaymentService.js";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -55,6 +57,9 @@ export const createPaymentOrder = async (req, res) => {
 // @route   POST /api/payment/verify
 // @access  Private (Customer)
 export const verifyPayment = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId } = req.body;
 
@@ -66,18 +71,20 @@ export const verifyPayment = async (req, res) => {
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ success: false, message: "Payment verification failed. Invalid signature." });
     }
 
-    // Mark booking as paid
-    const booking = await Booking.findByIdAndUpdate(
-      bookingId,
-      {
-        paymentStatus: "paid",
-        paymentMethod: "online",
-      },
-      { new: true }
-    );
+    // Process payment with ACID compliance
+    const booking = await processSuccessfulPayment(bookingId, {
+      method: "online",
+      razorpay_payment_id,
+      razorpay_order_id
+    }, session);
+
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(200).json({
       success: true,
@@ -85,6 +92,52 @@ export const verifyPayment = async (req, res) => {
       booking,
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Process a cash payment collection
+// @route   POST /api/payment/cash-collected
+// @access  Private (Professional)
+export const processCashPayment = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    const { bookingId } = req.body;
+    const professionalId = req.user.id || req.user._id;
+    
+    const booking = await Booking.findById(bookingId).session(session);
+    
+    if (!booking) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    
+    if (booking.professional.toString() !== professionalId.toString()) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+
+    const updatedBooking = await processSuccessfulPayment(bookingId, {
+      method: "cash"
+    }, session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      success: true,
+      message: "Cash payment recorded successfully",
+      booking: updatedBooking,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -2,6 +2,7 @@ import Admin from "../models/adminSchema.js";
 import Professional from "../models/professionalSchema.js";
 import Customer from "../models/customerSchema.js";
 import Booking from "../models/bookingSchema.js";
+import Transaction from "../models/transactionSchema.js";
 import bcrypt from "bcrypt";
 import generateToken from "../utils/generateToken.js";
 
@@ -46,12 +47,27 @@ export const getAdminStats = async (req, res) => {
   try {
     const totalCustomers = await Customer.countDocuments();
     const totalProfessionals = await Professional.countDocuments();
-    const pendingVerifications = await Professional.countDocuments({ isVerified: false });
+    const pendingVerifications = await Professional.countDocuments({ verificationStatus: "pending" });
     const totalBookings = await Booking.countDocuments();
-    
-    // Calculate total revenue from paid bookings (Assuming 10% platform fee for example, but we'll return total)
-    const paidBookings = await Booking.find({ paymentStatus: "paid", status: "completed" });
-    const totalRevenue = paidBookings.reduce((sum, b) => sum + (b.price || 100), 0);
+    // Transaction Ledger Aggregations
+    const grossTransactions = await Transaction.aggregate([
+      { $match: { type: { $in: ["payment_in", "cash_payment_received"] }, status: "completed" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+    const totalGrossRevenue = grossTransactions[0]?.total || 0;
+
+    const commissionTransactions = await Transaction.aggregate([
+      { $match: { type: "commission_deducted", status: "completed" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+    const totalPlatformRevenue = commissionTransactions[0]?.total || 0;
+
+    // Professionals pending payout (walletBalance > 0)
+    const pendingPayoutsAggregation = await Professional.aggregate([
+      { $match: { walletBalance: { $gt: 0 } } },
+      { $group: { _id: null, total: { $sum: "$walletBalance" } } }
+    ]);
+    const totalPendingPayouts = pendingPayoutsAggregation[0]?.total || 0;
 
     res.status(200).json({
       success: true,
@@ -60,7 +76,9 @@ export const getAdminStats = async (req, res) => {
         totalProfessionals,
         pendingVerifications,
         totalBookings,
-        totalRevenue
+        totalGrossRevenue,
+        totalPlatformRevenue,
+        totalPendingPayouts
       }
     });
   } catch (error) {
@@ -73,7 +91,7 @@ export const getAdminStats = async (req, res) => {
 // @access  Private (Admin)
 export const getAdminProfessionals = async (req, res) => {
   try {
-    const filter = req.query.status === "pending" ? { isVerified: false } : {};
+    const filter = req.query.status === "pending" ? { verificationStatus: "pending" } : {};
     const professionals = await Professional.find(filter).sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -86,15 +104,15 @@ export const getAdminProfessionals = async (req, res) => {
 };
 
 // @desc    Verify or Reject Professional
-// @route   PUT /api/admin/professional/:id/verify
+// @route   PUT /api/admin/professional/:id/verification
 // @access  Private (Admin)
 export const verifyProfessional = async (req, res) => {
   try {
-    const { isVerified } = req.body;
+    const { status, reason } = req.body;
     
     const professional = await Professional.findByIdAndUpdate(
       req.params.id,
-      { isVerified },
+      { verificationStatus: status, verificationReason: reason || "" },
       { new: true }
     );
 
@@ -104,7 +122,7 @@ export const verifyProfessional = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Professional ${isVerified ? "verified" : "unverified"} successfully`,
+      message: `Professional status updated to ${status}`,
       professional
     });
   } catch (error) {

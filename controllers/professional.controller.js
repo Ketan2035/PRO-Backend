@@ -49,7 +49,7 @@ export const registerPro = async (req, res) => {
 
 export const getProfessionals = async (req, res) => {
   try {
-    const pro = await Professional.find();
+    const pro = await Professional.find({ verificationStatus: 'verified' });
 
     res.status(200).json({
       success: true,

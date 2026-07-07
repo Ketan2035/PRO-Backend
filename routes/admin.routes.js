@@ -24,6 +24,6 @@ const isAdmin = (req, res, next) => {
 
 adminRoutes.get("/stats", isLoggedIn, isAdmin, getAdminStats);
 adminRoutes.get("/professionals", isLoggedIn, isAdmin, getAdminProfessionals);
-adminRoutes.put("/professional/:id/verify", isLoggedIn, isAdmin, verifyProfessional);
+adminRoutes.put("/professional/:id/verification", isLoggedIn, isAdmin, verifyProfessional);
 
 export default adminRoutes;

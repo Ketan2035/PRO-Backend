@@ -108,9 +108,14 @@ const professionalSchema = new mongoose.Schema(
       default: 0,
     },
 
-    isVerified: {
-      type: Boolean,
-      default: false,
+    verificationStatus: {
+      type: String,
+      enum: ["pending", "verified", "rejected"],
+      default: "pending",
+    },
+    verificationReason: {
+      type: String,
+      default: "",
     },
 
     idProof: {
@@ -148,8 +153,31 @@ const professionalSchema = new mongoose.Schema(
     password: {
       type: String,
     },
+
+    accountStatus: {
+      type: String,
+      enum: ["pending", "active", "suspended", "rejected"],
+      default: "active",
+    },
+    
+    // Financial Tracking
+    walletBalance: {
+      type: Number,
+      default: 0,
+    },
+    lifetimeEarnings: {
+      type: Number,
+      default: 0,
+    },
+    cashInHand: {
+      type: Number,
+      default: 0, // Cash collected directly by pro, they owe platform fee on this
+    },
+    
+    passwordResetToken: String,
+    passwordResetExpires: Date,
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 professionalSchema.index({ location: "2dsphere" });

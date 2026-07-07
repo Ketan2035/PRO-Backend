@@ -3,7 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
 import { createServer } from "http";
-import { Server } from "socket.io";
+import { initSocket } from "./socketHandler.js";
 import connectDb from "./config/db.js";
 import userRoutes from "./routes/user.routes.js";
 import professionalRoutes from "./routes/professional.routes.js";
@@ -12,6 +12,9 @@ import searchRoutes from "./routes/search.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
+import Message from "./models/messageSchema.js";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -21,37 +24,8 @@ import errorHandler from "./middleware/errorHandler.js";
 const app = express();
 const httpServer = createServer(app);
 
-// Socket.io setup
-export const io = new Server(httpServer, {
-  cors: {
-    origin: true,
-    credentials: true,
-  },
-});
-
-// Track connected users: { userId: socketId }
-const connectedUsers = new Map();
-
-io.on("connection", (socket) => {
-  const userId = socket.handshake.query.userId;
-  if (userId) {
-    connectedUsers.set(userId, socket.id);
-  }
-
-  socket.on("disconnect", () => {
-    connectedUsers.forEach((sid, uid) => {
-      if (sid === socket.id) connectedUsers.delete(uid);
-    });
-  });
-});
-
-// Helper to emit to a specific user
-export const emitToUser = (userId, event, data) => {
-  const socketId = connectedUsers.get(userId?.toString());
-  if (socketId) {
-    io.to(socketId).emit(event, data);
-  }
-};
+// Initialize Socket.io
+initSocket(httpServer);
 
 app.use(
   cors({
@@ -94,6 +68,8 @@ app.use("/api", searchRoutes);
 app.use("/api", paymentRoutes);
 app.use("/api", reviewRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api", chatRoutes);
+app.use("/api", notificationRoutes);
 
 // Error Handling Middleware
 app.use(errorHandler);

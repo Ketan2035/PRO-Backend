@@ -28,25 +28,31 @@ const bookingSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: [
-      "pending",
-      "accepted",
-      "on_the_way",
-      "in_progress",
-      "completed",
-      "cancelled",
-    ],
+    enum: ["pending", "accepted", "rejected", "cancelled", "closed", "on_the_way", "in_progress", "completed"],
     default: "pending",
+  },
+  jobStatus: {
+    type: String,
+    enum: ["not_started", "on_the_way", "in_progress", "completed"],
+    default: "not_started",
   },
   paymentStatus: {
     type: String,
-    enum: ["pending", "paid", "failed"],
+    enum: ["pending", "processing", "paid", "failed", "cash_collected", "refunded"],
     default: "pending",
   },
   paymentMethod: {
     type: String,
-    enum: ["cash", "online"],
+    enum: ["cash", "online", "wallet"],
   },
+  
+  // Pricing Breakdown
+  basePrice: { type: Number, default: 0 },
+  platformFee: { type: Number, default: 0 },
+  taxAmount: { type: Number, default: 0 },
+  price: { type: Number, default: 0 }, // Represents Final Amount
+  professionalEarnings: { type: Number, default: 0 },
+
   rating: {
     type: Number,
     min: 1,
@@ -55,7 +61,7 @@ const bookingSchema = new mongoose.Schema({
   review: String,
   cancelledBy: {
     type: String,
-    enum: ["customer", "professional"],
+    enum: ["customer", "professional", "admin"],
   },
   cancelReason: String,
   acceptedAt: Date,
