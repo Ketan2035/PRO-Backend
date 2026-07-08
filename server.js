@@ -14,6 +14,7 @@ import reviewRoutes from "./routes/review.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import availabilityRoutes from "./routes/availability.routes.js";
 import Message from "./models/messageSchema.js";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -70,6 +71,7 @@ app.use("/api", reviewRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", chatRoutes);
 app.use("/api", notificationRoutes);
+app.use("/api/availability", availabilityRoutes);
 
 // Error Handling Middleware
 app.use(errorHandler);

@@ -25,6 +25,9 @@ export const createBooking = async (req, res) => {
       date,
       time,
       paymentMethod,
+      bookingType: req.body.bookingType,
+      status: req.body.bookingType === "instant" ? "accepted" : "pending",
+      acceptedAt: req.body.bookingType === "instant" ? new Date() : null,
       
       // Save Pricing Breakdown
       basePrice: pricing.basePrice,
@@ -47,6 +50,8 @@ export const createBooking = async (req, res) => {
     
     // Emit real-time
     emitToUser(professionalId, "newNotification", notif);
+    emitToUser(professionalId, "refresh_bookings", { bookingId: booking._id });
+    emitToUser(req.user.id || req.user._id, "refresh_bookings", { bookingId: booking._id });
 
     res.status(201).json({
       success: true,
@@ -148,6 +153,8 @@ export const updateBookingStatus = async (req, res) => {
     });
     
     emitToUser(targetUserId, "newNotification", notif);
+    emitToUser(targetUserId, "refresh_bookings", { bookingId: booking._id });
+    emitToUser(req.user.id || req.user._id, "refresh_bookings", { bookingId: booking._id });
 
     res.status(200).json({
       success: true,

@@ -3,6 +3,7 @@ import Message from "./models/messageSchema.js";
 
 let io;
 const connectedUsers = new Map();
+const pendingRings = new Map();
 
 export const initSocket = (httpServer) => {
   io = new Server(httpServer, {
@@ -42,6 +43,47 @@ export const initSocket = (httpServer) => {
       } catch (err) {
         console.error("Chat Error:", err);
       }
+    });
+
+    // Phase 4: Instant Booking Socket Flow
+    socket.on("initiate_instant_booking", (data) => {
+      const { professionalId, bookingRequest } = data;
+      
+      const timeoutId = setTimeout(() => {
+        emitToUser(professionalId, "instant_booking_timeout", { reqId: bookingRequest._id });
+        io.emit(`instant_booking_result_${bookingRequest._id}`, { status: "rejected", reason: "timeout" });
+        pendingRings.delete(bookingRequest._id);
+      }, 30000); // 30 seconds
+
+      pendingRings.set(bookingRequest._id, timeoutId);
+      emitToUser(professionalId, "incoming_booking_ring", bookingRequest);
+    });
+
+    socket.on("accept_instant_booking", (data) => {
+      const { reqId } = data;
+      if (pendingRings.has(reqId)) {
+        clearTimeout(pendingRings.get(reqId));
+        pendingRings.delete(reqId);
+      }
+      io.emit(`instant_booking_result_${reqId}`, { status: "accepted" });
+    });
+
+    socket.on("reject_instant_booking", (data) => {
+      const { reqId } = data;
+      if (pendingRings.has(reqId)) {
+        clearTimeout(pendingRings.get(reqId));
+        pendingRings.delete(reqId);
+      }
+      io.emit(`instant_booking_result_${reqId}`, { status: "rejected", reason: "rejected" });
+    });
+
+    socket.on("cancel_instant_booking", (data) => {
+      const { reqId, professionalId } = data;
+      if (pendingRings.has(reqId)) {
+        clearTimeout(pendingRings.get(reqId));
+        pendingRings.delete(reqId);
+      }
+      emitToUser(professionalId, "cancel_incoming_ring", { reqId });
     });
 
     socket.on("disconnect", () => {
